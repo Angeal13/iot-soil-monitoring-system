@@ -565,3 +565,5 @@ echo "   Activate: source /home/pi/soil-venv/bin/activate"
 echo ""
 echo "🔄 The system will automatically start on boot!"
 echo "================================================"
+
+sudo reboot
