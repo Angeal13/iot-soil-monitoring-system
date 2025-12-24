@@ -26,85 +26,62 @@ print_red() {
 # ========================
 # CHECK RUN AS ROOT
 # ========================
-if [[ $EUID -ne 0 ]]; then
-    print_red "This script must be run as root. Use: sudo ./install.sh"
-    exit 1
-fi
-
-# ========================
-# CREATE SENSOR USER
-# ========================
-print_green "[1/9] Creating sensor user account..."
-
-# Check if user already exists
-if id "sensor" &>/dev/null; then
-    print_yellow "User 'sensor' already exists"
-else
-    # Create sensor user with home directory
-    useradd -m -s /bin/bash -G sudo,dialout sensor
-    echo "sensor:sensor123" | chpasswd
-    print_green "User 'sensor' created with password 'sensor123'"
-    print_yellow "⚠️  Please change the password after installation: sudo passwd sensor"
+if [[ $EUID -eq 0 ]]; then
+    print_yellow "Running as root - some operations may not work properly for user 'pi'"
 fi
 
 # ========================
 # SYSTEM UPDATE
 # ========================
-print_green "[2/9] Updating system packages..."
-apt update
-apt upgrade -y
+print_green "[1/8] Updating system packages..."
+sudo apt update
+sudo apt upgrade -y
 
 # ========================
 # INSTALL PYTHON & DEPENDENCIES
 # ========================
-print_green "[3/9] Installing Python and dependencies..."
-apt install python3 python3-pip python3-venv -y
+print_green "[2/8] Installing Python and dependencies..."
+sudo apt install python3 python3-pip python3-venv -y
 
 # ========================
-# INSTALL PYTHON PACKAGES AS SENSOR USER
+# INSTALL PYTHON PACKAGES
 # ========================
-print_green "[4/9] Installing Python packages for sensor user..."
-
-# Switch to sensor user to install packages
-sudo -u sensor bash << 'EOF'
-pip3 install --user pyserial==3.5
-pip3 install --user pandas==2.0.3
-pip3 install --user requests==2.31.0
-EOF
-
-print_green "Python packages installed for sensor user"
+print_green "[3/8] Installing Python packages..."
+pip3 install --break-system-packages pyserial==3.5
+pip3 install --break-system-packages pandas==2.0.3
+pip3 install --break-system-packages requests==2.31.0
 
 # ========================
 # CREATE APPLICATION STRUCTURE
 # ========================
-print_green "[5/9] Setting up application directory structure..."
+print_green "[4/8] Setting up application directory structure..."
 
-# Main application directory
-APP_DIR="/home/sensor/iot-soil-monitoring-system"
-mkdir -p $APP_DIR
-chown sensor:sensor $APP_DIR
-chmod 755 $APP_DIR
+# Main application directory - UPDATED TO MATCH REPOSITORY NAME
+APP_DIR="/home/pi/iot-soil-monitoring-system"
+sudo mkdir -p $APP_DIR
+sudo chown pi:pi $APP_DIR
+sudo chmod 755 $APP_DIR
 
 # Data storage directory
-DATA_DIR="/home/sensor/sensor_data"
-mkdir -p $DATA_DIR
-chown sensor:sensor $DATA_DIR
-chmod 755 $DATA_DIR
+DATA_DIR="/home/pi/sensor_data"
+sudo mkdir -p $DATA_DIR
+sudo chown pi:pi $DATA_DIR
+sudo chmod 755 $DATA_DIR
 
 # Logs directory
-LOG_DIR="/home/sensor/sensor_logs"
-mkdir -p $LOG_DIR
-chown sensor:sensor $LOG_DIR
-chmod 755 $LOG_DIR
+LOG_DIR="/home/pi/sensor_logs"
+sudo mkdir -p $LOG_DIR
+sudo chown pi:pi $LOG_DIR
+sudo chmod 755 $LOG_DIR
 
 # Gateway data directory
-GATEWAY_DATA_DIR="/home/sensor/gateway_data"
-mkdir -p $GATEWAY_DATA_DIR
-chown sensor:sensor $GATEWAY_DATA_DIR
-chmod 755 $GATEWAY_DATA_DIR
+GATEWAY_DATA_DIR="/home/pi/gateway_data"
+sudo mkdir -p $GATEWAY_DATA_DIR
+sudo chown pi:pi $GATEWAY_DATA_DIR
+sudo chmod 755 $GATEWAY_DATA_DIR
 
 print_green "Application directories created:"
-print_green "  - $APP_DIR (Python code)"
+print_green "  - $APP_DIR (Python code - matches repository name)"
 print_green "  - $DATA_DIR (sensor data storage)"
 print_green "  - $LOG_DIR (system logs)"
 print_green "  - $GATEWAY_DATA_DIR (gateway offline storage)"
@@ -112,29 +89,29 @@ print_green "  - $GATEWAY_DATA_DIR (gateway offline storage)"
 # ========================
 # ENABLE SERIAL INTERFACE
 # ========================
-print_green "[6/9] Configuring serial interface..."
+print_green "[5/8] Configuring serial interface..."
 
 # Disable serial console but enable serial port hardware
-raspi-config nonint do_serial 2
+sudo raspi-config nonint do_serial 2
 
-# Add sensor user to dialout group for serial access
-usermod -a -G dialout sensor
+# Add user to dialout group for serial access
+sudo usermod -a -G dialout pi
 
 # Set correct permissions for serial ports
-chmod 666 /dev/ttyUSB0 2>/dev/null || true
-chmod 666 /dev/ttyACM0 2>/dev/null || true
+sudo chmod 666 /dev/ttyUSB0 2>/dev/null || true
+sudo chmod 666 /dev/ttyACM0 2>/dev/null || true
 
 print_green "Serial interface configured"
-print_green "User 'sensor' added to dialout group"
+print_green "User 'pi' added to dialout group"
 
 # ========================
 # SETUP AUTO-START SERVICE
 # ========================
-print_green "[7/9] Setting up auto-start service..."
+print_green "[6/8] Setting up auto-start service..."
 
 # Create systemd service file
 SERVICE_FILE="/etc/systemd/system/soil-monitor.service"
-tee $SERVICE_FILE > /dev/null << EOF
+sudo tee $SERVICE_FILE > /dev/null << EOF
 [Unit]
 Description=Soil Monitoring IoT System
 After=network.target
@@ -144,11 +121,9 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-User=sensor
+User=pi
 WorkingDirectory=$APP_DIR
 ExecStart=/usr/bin/python3 $APP_DIR/MainController.py
-Environment="PATH=/home/sensor/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-Environment="PYTHONPATH=$APP_DIR"
 Restart=always
 RestartSec=10
 StandardOutput=syslog
@@ -168,19 +143,19 @@ EOF
 print_green "Service file created at $SERVICE_FILE"
 
 # Reload systemd and enable service
-systemctl daemon-reload
-systemctl enable soil-monitor.service
+sudo systemctl daemon-reload
+sudo systemctl enable soil-monitor.service
 
 print_green "Systemd service enabled to start on boot"
 
 # ========================
 # SETUP LOG ROTATION
 # ========================
-print_green "[8/9] Setting up log rotation..."
+print_green "[7/8] Setting up log rotation..."
 
 # Create logrotate configuration
 LOGROTATE_FILE="/etc/logrotate.d/soil-monitor"
-tee $LOGROTATE_FILE > /dev/null << EOF
+sudo tee $LOGROTATE_FILE > /dev/null << EOF
 $DATA_DIR/*.log $LOG_DIR/*.log $GATEWAY_DATA_DIR/*.log {
     daily
     missingok
@@ -188,7 +163,7 @@ $DATA_DIR/*.log $LOG_DIR/*.log $GATEWAY_DATA_DIR/*.log {
     compress
     delaycompress
     notifempty
-    create 644 sensor sensor
+    create 644 pi pi
     postrotate
         systemctl kill -s HUP soil-monitor.service 2>/dev/null || true
     endscript
@@ -200,12 +175,20 @@ print_green "Log rotation configured (keeps 14 days of logs)"
 # ========================
 # FINAL SETUP
 # ========================
-print_green "[9/9] Final setup steps..."
+print_green "[8/8] Final setup steps..."
+
+# Make Python scripts executable
+if [ -d "$APP_DIR" ]; then
+    chmod +x $APP_DIR/*.py
+    print_green "Python scripts made executable"
+else
+    print_yellow "Warning: $APP_DIR doesn't exist yet - will be created when you copy files"
+fi
 
 # Create example config if no config exists
 CONFIG_FILE="$APP_DIR/Config.py"
 if [ ! -f "$CONFIG_FILE" ]; then
-    tee $CONFIG_FILE > /dev/null << 'EOF'
+    sudo tee $CONFIG_FILE > /dev/null << 'EOF'
 """
 CONFIGURATION FILE - UPDATE THESE IP ADDRESSES!
 """
@@ -254,17 +237,16 @@ class Config:
     # OFFLINE STORAGE
     # ========================
     
-    OFFLINE_STORAGE = '/home/sensor/sensor_data/offline_data.csv'
+    OFFLINE_STORAGE = '/home/pi/sensor_data/offline_data.csv'
     MAX_OFFLINE_RECORDS = 1000
     
     # ========================
     # LOGGING
     # ========================
     
-    LOG_FILE = '/home/sensor/sensor_data/sensor_system.log'
+    LOG_FILE = '/home/pi/sensor_data/sensor_system.log'
     LOG_LEVEL = 'INFO'
 EOF
-    chown sensor:sensor $CONFIG_FILE
     print_green "Example Config.py created at $CONFIG_FILE"
 fi
 
@@ -272,9 +254,9 @@ fi
 # FIREWALL CONFIGURATION
 # ========================
 print_green "Configuring firewall..."
-ufw allow 5000/tcp  # Allow Flask app port
-ufw allow 22/tcp    # Allow SSH
-ufw --force enable 2>/dev/null || true
+sudo ufw allow 5000/tcp  # Allow Flask app port
+sudo ufw allow 22/tcp    # Allow SSH
+sudo ufw --force enable 2>/dev/null || true
 
 # ========================
 # INSTALLATION COMPLETE
@@ -283,18 +265,12 @@ echo "================================================"
 echo -e "${GREEN}✅ INSTALLATION COMPLETE!${NC}"
 echo "================================================"
 echo ""
-echo "👤 USER ACCOUNT:"
-echo "   Username: sensor"
-echo "   Password: sensor123 (change with: sudo passwd sensor)"
-echo "   Home directory: /home/sensor"
-echo ""
 echo "📋 NEXT STEPS:"
-echo "1. Switch to sensor user: sudo su - sensor"
-echo "2. Copy all Python files to: $APP_DIR"
-echo "3. Edit Config.py with your actual IP addresses:"
+echo "1. Copy all Python files to: $APP_DIR"
+echo "2. Edit Config.py with your actual IP addresses:"
 echo "   - DB_PI_URL: Should be http://192.168.1.95:5000"
 echo "   - GATEWAY_PI_URL: Your Gateway Pi IP (e.g., http://192.168.1.80:5000)"
-echo "4. Check SERIAL_PORT in Config.py (/dev/ttyUSB0 or /dev/ttyACM0)"
+echo "3. Check SERIAL_PORT in Config.py (/dev/ttyUSB0 or /dev/ttyACM0)"
 echo ""
 echo "🔧 SERVICE COMMANDS:"
 echo "   sudo systemctl start soil-monitor     # Start now"
@@ -306,14 +282,12 @@ echo ""
 echo "📊 LOG FILES:"
 echo "   $DATA_DIR/sensor_system.log      # Application logs"
 echo "   $DATA_DIR/offline_data.csv       # Offline data storage"
+echo "   $GATEWAY_DATA_DIR/gateway.log    # Gateway logs"
 echo ""
 echo "🔍 TEST THE SYSTEM:"
-echo "   1. Switch to sensor user: sudo su - sensor"
-echo "   2. Navigate to app: cd $APP_DIR"
-echo "   3. Run test: python3 test_connection.py"
-echo "   4. Start service: sudo systemctl start soil-monitor"
-echo "   5. Check logs: journalctl -u soil-monitor -f"
+echo "   1. Start service: sudo systemctl start soil-monitor"
+echo "   2. Check logs: journalctl -u soil-monitor -f"
+echo "   3. Run test: python3 $APP_DIR/test_connection.py"
 echo ""
 echo "🔄 The system will automatically start on boot!"
-echo "================================================"
 echo "================================================"
