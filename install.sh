@@ -47,17 +47,17 @@ sudo apt install python3 python3-pip python3-venv -y
 # INSTALL PYTHON PACKAGES
 # ========================
 print_green "[3/8] Installing Python packages..."
-pip3 install --break-system-packages pyserial
-pip3 install --break-system-packages pandas
-pip3 install --break-system-packages requests
+pip3 install --break-system-packages pyserial==3.5
+pip3 install --break-system-packages pandas==2.0.3
+pip3 install --break-system-packages requests==2.31.0
 
 # ========================
 # CREATE APPLICATION STRUCTURE
 # ========================
 print_green "[4/8] Setting up application directory structure..."
 
-# Main application directory
-APP_DIR="/home/pi/soil_monitor"
+# Main application directory - UPDATED TO MATCH REPOSITORY NAME
+APP_DIR="/home/pi/iot-soil-monitoring-system"
 sudo mkdir -p $APP_DIR
 sudo chown pi:pi $APP_DIR
 sudo chmod 755 $APP_DIR
@@ -81,7 +81,7 @@ sudo chown pi:pi $GATEWAY_DATA_DIR
 sudo chmod 755 $GATEWAY_DATA_DIR
 
 print_green "Application directories created:"
-print_green "  - $APP_DIR (Python code)"
+print_green "  - $APP_DIR (Python code - matches repository name)"
 print_green "  - $DATA_DIR (sensor data storage)"
 print_green "  - $LOG_DIR (system logs)"
 print_green "  - $GATEWAY_DATA_DIR (gateway offline storage)"
@@ -182,7 +182,7 @@ if [ -d "$APP_DIR" ]; then
     chmod +x $APP_DIR/*.py
     print_green "Python scripts made executable"
 else
-    print_yellow "Warning: $APP_DIR doesn't exist yet"
+    print_yellow "Warning: $APP_DIR doesn't exist yet - will be created when you copy files"
 fi
 
 # Create example config if no config exists
