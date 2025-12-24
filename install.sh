@@ -47,9 +47,9 @@ sudo apt install python3 python3-pip python3-venv -y
 # INSTALL PYTHON PACKAGES
 # ========================
 print_green "[3/8] Installing Python packages..."
-pip3 install --break-system-packages pyserial==3.5
-pip3 install --break-system-packages pandas==2.0.3
-pip3 install --break-system-packages requests==2.31.0
+pip3 install --break-system-packages pyserial
+pip3 install --break-system-packages pandas
+pip3 install --break-system-packages requests
 
 # ========================
 # CREATE APPLICATION STRUCTURE
