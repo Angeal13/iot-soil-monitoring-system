@@ -57,25 +57,25 @@ pip3 install --break-system-packages requests==2.31.0
 print_green "[4/8] Setting up application directory structure..."
 
 # Main application directory - UPDATED TO MATCH REPOSITORY NAME
-APP_DIR="/home/pi/iot-soil-monitoring-system"
+APP_DIR="/home/sensor/iot-soil-monitoring-system"
 sudo mkdir -p $APP_DIR
 sudo chown pi:pi $APP_DIR
 sudo chmod 755 $APP_DIR
 
 # Data storage directory
-DATA_DIR="/home/pi/sensor_data"
+DATA_DIR="/home/sensor/sensor_data"
 sudo mkdir -p $DATA_DIR
 sudo chown pi:pi $DATA_DIR
 sudo chmod 755 $DATA_DIR
 
 # Logs directory
-LOG_DIR="/home/pi/sensor_logs"
+LOG_DIR="/home/sesor/sensor_logs"
 sudo mkdir -p $LOG_DIR
 sudo chown pi:pi $LOG_DIR
 sudo chmod 755 $LOG_DIR
 
 # Gateway data directory
-GATEWAY_DATA_DIR="/home/pi/gateway_data"
+GATEWAY_DATA_DIR="/home/sensor/gateway_data"
 sudo mkdir -p $GATEWAY_DATA_DIR
 sudo chown pi:pi $GATEWAY_DATA_DIR
 sudo chmod 755 $GATEWAY_DATA_DIR
@@ -244,7 +244,7 @@ class Config:
     # LOGGING
     # ========================
     
-    LOG_FILE = '/home/pi/sensor_data/sensor_system.log'
+    LOG_FILE = '/home/sensor/sensor_data/sensor_system.log'
     LOG_LEVEL = 'INFO'
 EOF
     print_green "Example Config.py created at $CONFIG_FILE"
