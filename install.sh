@@ -27,7 +27,12 @@ print_red() {
 # CHECK RUN AS ROOT
 # ========================
 if [[ $EUID -eq 0 ]]; then
-    print_yellow "Running as root - some operations may not work properly for user 'pi'"
+    print_yellow "Running as root - creating virtual environment as pi user"
+    # Create virtual environment as pi user
+    sudo -u pi python3 -m venv /home/pi/soil-sensor-venv 2>/dev/null || true
+else
+    # Create virtual environment
+    python3 -m venv /home/pi/soil-sensor-venv 2>/dev/null || true
 fi
 
 # ========================
@@ -41,15 +46,23 @@ sudo apt upgrade -y
 # INSTALL PYTHON & DEPENDENCIES
 # ========================
 print_green "[2/8] Installing Python and dependencies..."
-sudo apt install python3 python3-pip python3-venv -y
+sudo apt install python3 python3-pip python3-venv python3-pandas python3-serial -y
 
 # ========================
 # INSTALL PYTHON PACKAGES
 # ========================
-print_green "[3/8] Installing Python packages..."
-pip3 install --break-system-packages pyserial==3.5
-pip3 install --break-system-packages pandas==2.0.3
-pip3 install --break-system-packages requests==2.31.0
+print_green "[3/8] Installing Python packages using system packages..."
+# Install packages using apt to avoid pip system installation issues
+sudo apt install python3-pandas python3-requests -y
+
+# Install remaining packages using pip with user flag
+if [[ $EUID -eq 0 ]]; then
+    # If running as root, install as pi user
+    sudo -u pi /home/pi/soil-sensor-venv/bin/pip install pyserial==3.5 requests==2.31.0 --no-warn-script-location
+else
+    # If running as pi user, use virtual environment
+    /home/pi/soil-sensor-venv/bin/pip install pyserial==3.5 requests==2.31.0 --no-warn-script-location
+fi
 
 # ========================
 # CREATE APPLICATION STRUCTURE
@@ -111,6 +124,15 @@ print_green "[6/8] Setting up auto-start service..."
 
 # Create systemd service file
 SERVICE_FILE="/etc/systemd/system/soil-monitor.service"
+
+# Use virtual environment in service file if it exists
+VENV_PATH="/home/pi/soil-sensor-venv"
+if [ -d "$VENV_PATH" ]; then
+    PYTHON_PATH="$VENV_PATH/bin/python3"
+else
+    PYTHON_PATH="/usr/bin/python3"
+fi
+
 sudo tee $SERVICE_FILE > /dev/null << EOF
 [Unit]
 Description=Soil Monitoring IoT System
@@ -123,7 +145,7 @@ StartLimitBurst=5
 Type=simple
 User=pi
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/python3 $APP_DIR/MainController.py
+ExecStart=$PYTHON_PATH $APP_DIR/MainController.py
 Restart=always
 RestartSec=10
 StandardOutput=syslog
@@ -278,6 +300,14 @@ echo "   sudo systemctl stop soil-monitor      # Stop service"
 echo "   sudo systemctl restart soil-monitor   # Restart service"
 echo "   sudo systemctl status soil-monitor    # Check status"
 echo "   journalctl -u soil-monitor -f         # View live logs"
+echo ""
+echo "🐍 PYTHON ENVIRONMENT:"
+if [ -d "$VENV_PATH" ]; then
+    echo "   Virtual environment created at: $VENV_PATH"
+    echo "   To activate: source $VENV_PATH/bin/activate"
+else
+    echo "   Using system Python: /usr/bin/python3"
+fi
 echo ""
 echo "📊 LOG FILES:"
 echo "   $DATA_DIR/sensor_system.log      # Application logs"
